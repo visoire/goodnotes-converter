@@ -1,0 +1,21 @@
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local sample notebooks & test outputs
+Beispieldateien/
+converted_output/
+pdf_exports/
+_temp/
+
+# Python (desktop-bridge)
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env

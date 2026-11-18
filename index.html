@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>GoodNotes Converter</title>
+    <meta name="description" content="Convert a GoodNotes notebook to PDF or Word, with or without your handwriting. Runs in your browser, nothing is uploaded.">
+    <!-- Favicon & Touch Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/img/favicon.png">
+    <link rel="shortcut icon" href="assets/img/favicon.ico">
+    <link rel="apple-touch-icon" href="assets/img/logo.png">
+
+    <!-- Fonts: Inter & DM Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="assets/css/style.css">
+
+    <!-- Core libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- Conversion modules (Word, handwriting reader and PDF page reader load on demand) -->
+    <script src="assets/js/handwriting.js"></script>
+    <script src="assets/js/audio.js"></script>
+    <script src="assets/js/ocr.js"></script>
+    <script src="assets/js/pdf-pages.js"></script>
+    <script src="assets/js/zip-handler.js"></script>
+    <script src="assets/js/exporters/docx.js"></script>
+    <script src="assets/js/exporters/images.js"></script>
+    <script src="assets/js/exporters/svg.js"></script>
+</head>
+<body>
+    <div class="app-shell">
+        <main class="panel">
+            <div class="panel-inner" id="panelInner">
+
+                <div class="sec-head">
+                    <div class="brand-icon">
+                        <img src="assets/img/logo.png" alt="">
+                    </div>
+                    <div>
+                        <h1 class="h-title"><span class="mute">GoodNotes</span> <span class="acc">Converter</span>.</h1>
+                        <p class="lead">Turn a GoodNotes notebook into a PDF or Word file. It all happens on your device, nothing is uploaded.</p>
+                    </div>
+                </div>
+
+                <!-- Step 1: format -->
+                <section class="step" aria-labelledby="step1Title">
+                    <div class="step-head">
+                        <span class="step-num" aria-hidden="true">1</span>
+                        <h2 class="step-title" id="step1Title">What do you want?</h2>
+                    </div>
+                    <div class="choice-grid" role="radiogroup" aria-labelledby="step1Title">
+                        <label class="choice">
+                            <input type="radio" name="format" value="pdf" checked>
+                            <span class="choice-body">
+                                <span class="choice-name">PDF <span class="choice-ext">.pdf</span></span>
+                                <span class="choice-sub">Looks like your notebook. Best for reading, printing and sharing.</span>
+                            </span>
+                        </label>
+                        <label class="choice">
+                            <input type="radio" name="format" value="docx">
+                            <span class="choice-body">
+                                <span class="choice-name">Word <span class="choice-ext">.docx</span></span>
+                                <span class="choice-sub">An editable document. Best for editing and copying text.</span>
+                            </span>
+                        </label>
+                    </div>
+                </section>
+
+                <!-- Step 2: handwriting -->
+                <section class="step" aria-labelledby="step2Title">
+                    <div class="step-head">
+                        <span class="step-num" aria-hidden="true">2</span>
+                        <h2 class="step-title" id="step2Title">Handwriting</h2>
+                    </div>
+                    <label class="hw-row" for="optHandwriting">
+                        <span class="hw-label">Include my handwriting</span>
+                        <span class="switch">
+                            <input type="checkbox" id="optHandwriting" checked>
+                            <span class="slider"></span>
+                        </span>
+                    </label>
+                    <p class="hint" id="hwHint" aria-live="polite"></p>
+                </section>
+
+                <!-- Optional extras: collapsed so the main flow stays simple -->
+                <section class="step step-extras" aria-labelledby="extrasTitle">
+                    <button type="button" class="extras-toggle" id="extrasToggle" aria-expanded="false" aria-controls="extrasBody">
+                        <span class="extras-toggle-left">
+                            <span class="step-title" id="extrasTitle">Extras</span>
+                            <span class="optional-tag">optional</span>
+                        </span>
+                        <span class="extras-summary" id="extrasSummary"></span>
+                        <svg class="extras-chevron" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div class="extras-body" id="extrasBody" hidden>
+                        <label class="extra-row" for="xImages">
+                            <span class="extra-text">
+                                <span class="extra-label">Page pictures (JPG)</span>
+                                <span class="extra-desc">Also save every page as a picture, in one ZIP.</span>
+                            </span>
+                            <span class="switch"><input type="checkbox" id="xImages"><span class="slider"></span></span>
+                        </label>
+                        <label class="extra-row" for="xSvg">
+                            <span class="extra-text">
+                                <span class="extra-label">Sharp pages (SVG)</span>
+                                <span class="extra-desc">Also save pages as vector drawings that stay sharp at any zoom.</span>
+                            </span>
+                            <span class="switch"><input type="checkbox" id="xSvg"><span class="slider"></span></span>
+                        </label>
+                        <label class="extra-row" for="xTxt" id="xTxtRow">
+                            <span class="extra-text">
+                                <span class="extra-label">Text file (.txt)</span>
+                                <span class="extra-desc" id="xTxtDesc">Also save your handwriting as plain text.</span>
+                            </span>
+                            <span class="switch"><input type="checkbox" id="xTxt"><span class="slider"></span></span>
+                        </label>
+                        <label class="extra-row" for="xAudio">
+                            <span class="extra-text">
+                                <span class="extra-label">Voice recordings</span>
+                                <span class="extra-desc">Save audio that was recorded inside the notebook.</span>
+                            </span>
+                            <span class="switch"><input type="checkbox" id="xAudio" checked><span class="slider"></span></span>
+                        </label>
+                        <label class="extra-row" for="xThumb">
+                            <span class="extra-text">
+                                <span class="extra-label">Use preview image if empty</span>
+                                <span class="extra-desc">If a notebook has no readable pages, use its preview picture.</span>
+                            </span>
+                            <span class="switch"><input type="checkbox" id="xThumb" checked><span class="slider"></span></span>
+                        </label>
+                    </div>
+                </section>
+
+                <p class="outcome" id="outcome" aria-live="polite"></p>
+
+                <!-- Step 3: file -->
+                <div class="frame" id="dropFrame">
+                    <div class="frame-in" id="dropZone" tabindex="0" role="button" aria-label="Add your GoodNotes file: drop it here or browse">
+                        <div class="drop-icon">
+                            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                        </div>
+                        <div class="drop-meta-wrap">
+                            <div class="drop-title"><span class="step-inline">3</span>Drop your GoodNotes file here, or <span class="browse">browse</span></div>
+                            <p class="drop-sub">One notebook, several notebooks, or a full backup (.zip)</p>
+                            <div class="format-row">
+                                <span class="format-tag">.goodnotes</span>
+                                <span class="format-tag">.zip</span>
+                            </div>
+                            <div class="drop-action-row">
+                                <button type="button" class="btn-choose" id="chooseFilesBtn">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    <span>Choose files</span>
+                                </button>
+                            </div>
+                        </div>
+                        <input type="file" id="fileInput" accept=".goodnotes,.zip" multiple aria-hidden="true">
+                    </div>
+                </div>
+
+                <div class="status-bar" id="statusBar" role="status" aria-live="polite"></div>
+
+                <section class="results-box" id="resultsBox">
+                    <div class="master-bar" id="masterBar" style="display: none;">
+                        <div>
+                            <h4 id="masterTitle">All files in one ZIP</h4>
+                            <p id="masterDesc"></p>
+                        </div>
+                        <button class="btn btn-accent" id="masterDownloadBtn">
+                            <span>Download all</span>
+                            <span class="arr">&rarr;</span>
+                        </button>
+                    </div>
+                    <div class="doc-stream" id="docStream"></div>
+                </section>
+
+                <p class="fine-print">
+                    GoodNotes keeps pen writing in a private format, so results can differ slightly from the app.
+                    Turning handwriting into Word text works for English and is best with neat writing, so please check the result.
+                </p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ---------------------------------------------------------------
+        // Elements
+        // ---------------------------------------------------------------
+        const dropFrame = document.getElementById('dropFrame');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const statusBar = document.getElementById('statusBar');
+        const resultsBox = document.getElementById('resultsBox');
+        const masterBar = document.getElementById('masterBar');
+        const masterTitle = document.getElementById('masterTitle');
+        const masterDesc = document.getElementById('masterDesc');
+        const masterDownloadBtn = document.getElementById('masterDownloadBtn');
+        const docStream = document.getElementById('docStream');
+        const panelInner = document.getElementById('panelInner');
+        const chooseFilesBtn = document.getElementById('chooseFilesBtn');
+        const formatRadios = document.querySelectorAll('input[name="format"]');
+        const optHandwriting = document.getElementById('optHandwriting');
+        const hwHint = document.getElementById('hwHint');
+        const outcome = document.getElementById('outcome');
+
+        // ---------------------------------------------------------------
+        // The only two settings: format and handwriting
+        // ---------------------------------------------------------------
+        function readSetting(key) {
+            try { return localStorage.getItem(key); } catch (e) { return null; }
+        }
+        function saveSetting(key, value) {
+            try { localStorage.setItem(key, value); } catch (e) { /* private mode: setting just won't persist */ }
+        }
+
+        const settings = {
+            format: readSetting('gn_format') === 'docx' ? 'docx' : 'pdf',
+            handwriting: readSetting('gn_handwriting') !== 'false',
+            extras: {
+                images: readSetting('gn_x_images') === 'true',
+                svg: readSetting('gn_x_svg') === 'true',
+                txt: readSetting('gn_x_txt') === 'true',
+                audio: readSetting('gn_x_audio') !== 'false',
+                thumbnail: readSetting('gn_x_thumb') !== 'false'
+            }
+        };
+
+        // Extras: id of the switch, key in settings.extras, and the words used in the summary
+        const EXTRA_DEFS = [
+            { id: 'xImages', key: 'images', ls: 'gn_x_images', short: 'page pictures (JPG)' },
+            { id: 'xSvg', key: 'svg', ls: 'gn_x_svg', short: 'sharp pages (SVG)' },
+            { id: 'xTxt', key: 'txt', ls: 'gn_x_txt', short: 'a text file' },
+            { id: 'xAudio', key: 'audio', ls: 'gn_x_audio', short: 'voice recordings' },
+            { id: 'xThumb', key: 'thumbnail', ls: 'gn_x_thumb', short: null }
+        ];
+        const extrasToggle = document.getElementById('extrasToggle');
+        const extrasBody = document.getElementById('extrasBody');
+        const extrasSummary = document.getElementById('extrasSummary');
+        const xTxtRow = document.getElementById('xTxtRow');
+        const xTxtDesc = document.getElementById('xTxtDesc');
+
+        /** Extras that will really run (the text file needs handwriting). */
+        function activeExtras(s) {
+            return { ...s.extras, txt: s.extras.txt && s.handwriting };
+        }
+
+        const EXPLAIN = {
+            'pdf:on': {
+                hint: 'Your pen writing is drawn on the pages, the way it looks in GoodNotes.',
+                outcome: 'a PDF with your handwriting on the pages'
+            },
+            'pdf:off': {
+                hint: 'Pages are saved without your pen writing. Imported pages, pictures and typed text stay.',
+                outcome: 'a PDF without your handwriting'
+            },
+            'docx:on': {
+                hint: 'Your handwriting is turned into typed text you can edit. Imported pages are added as pictures. If a page cannot be read, it is added as a picture instead.',
+                outcome: 'a Word file with your handwriting as editable text'
+            },
+            'docx:off': {
+                hint: 'Pages are saved as pictures in the Word file, without your pen writing.',
+                outcome: 'a Word file with the pages as pictures, without handwriting'
+            }
+        };
+
+        function syncSettingsUI() {
+            formatRadios.forEach(r => { r.checked = r.value === settings.format; });
+            optHandwriting.checked = settings.handwriting;
+
+            const active = activeExtras(settings);
+            EXTRA_DEFS.forEach(def => {
+                const input = document.getElementById(def.id);
+                input.checked = settings.extras[def.key];
+            });
+            // The text file is made from handwriting, so it needs handwriting on
+            const txtInput = document.getElementById('xTxt');
+            txtInput.disabled = !settings.handwriting;
+            xTxtRow.classList.toggle('is-disabled', !settings.handwriting);
+            xTxtDesc.textContent = settings.handwriting
+                ? 'Also save your handwriting as plain text.'
+                : 'Turn on "Include my handwriting" to use this.';
+
+            const chosen = EXTRA_DEFS.filter(d => d.short && active[d.key]).map(d => d.short);
+            extrasSummary.textContent = chosen.length ? chosen.join(', ') : 'none';
+
+            const text = EXPLAIN[settings.format + ':' + (settings.handwriting ? 'on' : 'off')];
+            const plus = chosen.length ? ', plus ' + chosen.join(', ') : '';
+            hwHint.textContent = text.hint;
+            outcome.innerHTML = 'You get <b>' + text.outcome + '</b>' + escapeHtml(plus) + '.';
+        }
+
+        extrasToggle.addEventListener('click', () => {
+            const open = extrasToggle.getAttribute('aria-expanded') === 'true';
+            extrasToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+            extrasBody.hidden = open;
+        });
+
+        EXTRA_DEFS.forEach(def => {
+            document.getElementById(def.id).addEventListener('change', (e) => {
+                settings.extras[def.key] = e.target.checked;
+                saveSetting(def.ls, e.target.checked ? 'true' : 'false');
+                syncSettingsUI();
+            });
+        });
+
+        formatRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (!radio.checked) return;
+                settings.format = radio.value;
+                saveSetting('gn_format', settings.format);
+                syncSettingsUI();
+            });
+        });
+
+        optHandwriting.addEventListener('change', () => {
+            settings.handwriting = optHandwriting.checked;
+            saveSetting('gn_handwriting', settings.handwriting ? 'true' : 'false');
+            syncSettingsUI();
+        });
+
+        syncSettingsUI();
+
+        // ---------------------------------------------------------------
+        // Drop zone
+        // ---------------------------------------------------------------
+        let masterZipBlob = null;
+        let masterZipName = 'converted_goodnotes.zip';
+        let convertedFiles = [];
+        let isBusy = false;
+
+        dropZone.addEventListener('click', (e) => {
+            if (e.target.closest('#chooseFilesBtn')) return;
+            fileInput.click();
+        });
+
+        chooseFilesBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.click();
+        });
+
+        dropZone.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                fileInput.click();
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                const files = Array.from(e.target.files);
+                fileInput.value = '';
+                handleFiles(files);
+            }
+        });
+
+        let dragCounter = 0;
+        ['dragenter', 'dragover'].forEach(name => {
+            dropFrame.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+        dropFrame.addEventListener('dragenter', () => {
+            dragCounter++;
+            dropFrame.classList.add('drag-over');
+        });
+        dropFrame.addEventListener('dragleave', () => {
+            dragCounter--;
+            if (dragCounter <= 0) {
+                dragCounter = 0;
+                dropFrame.classList.remove('drag-over');
+            }
+        });
+        dropFrame.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter = 0;
+            dropFrame.classList.remove('drag-over');
+            if (e.dataTransfer.files.length) {
+                handleFiles(Array.from(e.dataTransfer.files));
+            }
+        });
+
+        masterDownloadBtn.addEventListener('click', () => {
+            if (masterZipBlob) triggerDownload(masterZipBlob, masterZipName);
+        });
+
+        // ---------------------------------------------------------------
+        // Helpers
+        // ---------------------------------------------------------------
+        function triggerDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+        }
+
+        function showStatus(type, message, showProgress = false, pct = 0) {
+            statusBar.className = 'status-bar ' + type;
+            const progressHtml = showProgress
+                ? '<div class="progress-track"><div class="progress-fill" id="progressFill" style="width: ' + pct + '%"></div></div>'
+                : '';
+            statusBar.innerHTML = (type === 'processing' ? '<div class="spinner"></div>' : '') +
+                '<div style="flex-grow: 1;">' + message + progressHtml + '</div>';
+        }
+
+        function setProgress(pct) {
+            const fill = document.getElementById('progressFill');
+            if (fill) fill.style.width = Math.min(100, Math.max(0, pct)) + '%';
+        }
+
+        function formatSize(bytes) {
+            if (!bytes) return '0 B';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function isPdf(data) {
+            return data && data.length >= 4 && data[0] === 0x25 && data[1] === 0x50 && data[2] === 0x44 && data[3] === 0x46;
+        }
+
+        function isImage(data) {
+            if (!data || data.length < 4) return null;
+            if (data[0] === 0xFF && data[1] === 0xD8 && data[2] === 0xFF) return 'JPEG';
+            if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4E && data[3] === 0x47) return 'PNG';
+            return null;
+        }
+
+        function loadImage(data, type = 'jpeg') {
+            return new Promise((resolve, reject) => {
+                const blob = new Blob([data], { type: 'image/' + type.toLowerCase() });
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                img.onload = () => { resolve(img); URL.revokeObjectURL(url); };
+                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Failed to load image attachment')); };
+                img.src = url;
+            });
+        }
+
+        // ---------------------------------------------------------------
+        // Notebook -> pages
+        // ---------------------------------------------------------------
+        const ONLY_HANDWRITING_MESSAGE = 'This notebook only contains handwriting. Turn on "Include my handwriting" to convert it.';
+
+        /** Page order (as UUIDs) from the notebook's index files. */
+        function getOrderedUuids(notesIndexData, eventsData) {
+            const hw = window.GoodNotesHandwriting;
+            let ordered = [];
+            if (hw && notesIndexData) ordered = hw.extractAttachmentOrderFromEvents(notesIndexData);
+            if (ordered.length === 0 && hw && eventsData) ordered = hw.extractAttachmentOrderFromEvents(eventsData);
+            return ordered;
+        }
+
+        /** Pages built from image attachments and note files. */
+        function buildImagePageSpecs(imageEntries, noteEntries, orderedUuids, attachmentIndex, thumbnailBytes) {
+            const hw = window.GoodNotesHandwriting;
+
+            const noteByUuid = {};
+            for (const [path, entry] of Object.entries(noteEntries)) {
+                noteByUuid[path.split('/').pop().toUpperCase()] = entry;
+            }
+
+            const entryByUuid = {};
+            for (const e of imageEntries) {
+                entryByUuid[e.entry.name.split('/').pop().toUpperCase()] = e;
+            }
+
+            if (attachmentIndex && hw && typeof hw.decodeProtoStream === 'function') {
+                try {
+                    for (const msg of hw.decodeProtoStream(attachmentIndex)) {
+                        const strings = msg.filter(f => f.type === 'bytes').map(f => hw.tryDecodeString(f.value)).filter(Boolean);
+                        if (strings.length >= 2) {
+                            const uuid = strings[0].toUpperCase();
+                            const fileUuid = strings[1].split('/').pop().toUpperCase();
+                            if (uuid !== fileUuid && entryByUuid[fileUuid]) entryByUuid[uuid] = entryByUuid[fileUuid];
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Converter] Attachment index notice:', e);
+                }
+            }
+
+            const pages = [];
+            const usedImageNames = new Set();
+
+            for (const uuid of orderedUuids) {
+                const image = entryByUuid[uuid];
+                const note = noteByUuid[uuid];
+                if (image || note) {
+                    pages.push({ uuid, image: image || null, note: note || null });
+                    if (image) usedImageNames.add(image.entry.name);
+                }
+            }
+
+            for (const img of imageEntries) {
+                if (!usedImageNames.has(img.entry.name)) {
+                    const name = img.entry.name.split('/').pop().toUpperCase();
+                    pages.push({ uuid: name, image: img, note: noteByUuid[name] || null });
+                }
+            }
+
+            if (pages.length === 0) {
+                for (const [path, note] of Object.entries(noteEntries)) {
+                    pages.push({ uuid: path.split('/').pop().toUpperCase(), image: null, note });
+                }
+            }
+
+            if (pages.length === 0 && thumbnailBytes) {
+                pages.push({ uuid: 'THUMBNAIL_PREVIEW', image: { data: thumbnailBytes, imgType: 'JPEG' }, note: null });
+            }
+
+            return pages;
+        }
+
+        /**
+         * Draw every page (background + optional ink). Builds the PDF when asked.
+         * Page pictures are only kept when a Word file needs them.
+         */
+        async function renderPages(specs, { wantPdf, wantHandwriting, pdfDoc, keepCanvas, wantSvg }) {
+            const hw = window.GoodNotesHandwriting;
+            const pdfRenderScale = wantPdf ? 1.5 : 1.1;
+            let pdf = null;
+            let anyInk = false;
+            let anyBackground = false;
+            const rendered = [];
+
+            for (let i = 0; i < specs.length; i++) {
+                const spec = specs[i];
+                setProgress(Math.round((i / specs.length) * 100));
+
+                let background = null;
+                let w = 800, h = 1000;
+                let ptScale = 0.75;
+
+                try {
+                    if (spec.pdfIndex != null && pdfDoc) {
+                        background = await pdfDoc.renderPage(spec.pdfIndex, pdfRenderScale);
+                        ptScale = 1 / pdfRenderScale;
+                    } else if (spec.image) {
+                        try {
+                            background = await loadImage(spec.image.data, spec.image.imgType || 'jpeg');
+                        } catch (imgErr) {
+                            console.warn('[Converter] Could not load image for page', spec.uuid, imgErr);
+                        }
+                    }
+                    if (background) {
+                        w = background.naturalWidth || background.width;
+                        h = background.naturalHeight || background.height;
+                        anyBackground = true;
+                    }
+
+                    let strokes = [];
+                    if (wantHandwriting && spec.note && hw) {
+                        try {
+                            const noteBytes = await spec.note.async('uint8array');
+                            const res = hw.extractStrokesFromNotes(noteBytes, { width: w, height: h });
+                            if (res.hasHandwriting && res.strokes.length > 0) {
+                                strokes = res.strokes;
+                                anyInk = true;
+                            }
+                        } catch (e) {
+                            console.warn('[Converter] Handwriting notice on page', i + 1, e);
+                        }
+                    }
+
+                    const canvas = hw.renderStrokesToCanvas(strokes, w, h, background, {});
+
+                    if (wantPdf) {
+                        const pageW = w * ptScale;
+                        const pageH = h * ptScale;
+                        const orientation = pageW > pageH ? 'landscape' : 'portrait';
+                        if (!pdf) {
+                            pdf = new window.jspdf.jsPDF({ orientation, unit: 'pt', format: [pageW, pageH] });
+                        } else {
+                            pdf.addPage([pageW, pageH], orientation);
+                        }
+                        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, pageH, undefined, 'FAST');
+                    }
+
+                    const page = {
+                        pageNum: i + 1,
+                        strokes,
+                        width: w,
+                        height: h,
+                        hasBackground: !!background,
+                        canvas: keepCanvas ? canvas : null,
+                        plainCanvas: null,
+                        svgBackground: null,
+                        text: ''
+                    };
+                    // A clean copy of the page without ink: Word uses it (ink becomes text),
+                    // SVG uses it as the layer under the vector strokes.
+                    if (background && (wantSvg || (!wantPdf && strokes.length > 0))) {
+                        const plain = strokes.length > 0 ? hw.renderStrokesToCanvas([], w, h, background, {}) : canvas;
+                        if (!wantPdf && strokes.length > 0) page.plainCanvas = plain;
+                        if (wantSvg) page.svgBackground = plain.toDataURL('image/jpeg', 0.85);
+                    }
+                    rendered.push(page);
+                } catch (e) {
+                    console.warn('[Converter] Page conversion notice:', spec.uuid, e);
+                }
+            }
+
+            if (wantHandwriting && !anyInk && !anyBackground) {
+                throw new Error('No handwriting could be read from this notebook.');
+            }
+            if (!wantHandwriting && !anyBackground) {
+                throw new Error(ONLY_HANDWRITING_MESSAGE);
+            }
+
+            return {
+                blob: (wantPdf && pdf) ? pdf.output('blob') : null,
+                hasHandwriting: anyInk,
+                pageCount: specs.length,
+                pages: rendered
+            };
+        }
+
+        /**
+         * Read one notebook. For PDF output with nothing to draw on top, the
+         * original PDF inside the notebook is returned untouched.
+         */
+        async function convertNotebook(zip, opts) {
+            const wantPdf = opts.format === 'pdf';
+            const wantHandwriting = opts.handwriting;
+            const extras = opts.extras;
+            // Extras that need the pages drawn (not just the original PDF handed back)
+            const needsPages = extras.images || extras.svg || extras.txt;
+
+            const attachmentEntries = [];
+            const noteEntries = {};
+            zip.forEach((path, entry) => {
+                if (entry.dir) return;
+                if (path.startsWith('attachments/')) attachmentEntries.push(entry);
+                else if (path.startsWith('notes/')) noteEntries[path] = entry;
+            });
+
+            const thumbnailBytes = (extras.thumbnail && window.GoodNotesZipHandler)
+                ? await window.GoodNotesZipHandler.extractThumbnail(zip)
+                : null;
+
+            let foundPdf = null;
+            const imageFiles = [];
+            for (const entry of attachmentEntries) {
+                const data = await entry.async('uint8array');
+                if (isPdf(data)) {
+                    if (!foundPdf || data.length > foundPdf.data.length) foundPdf = { entry, data };
+                } else {
+                    const imgType = isImage(data);
+                    if (imgType) imageFiles.push({ entry, data, imgType });
+                }
+            }
+
+            let hasNotesData = false;
+            if (wantHandwriting) {
+                for (const entry of Object.values(noteEntries)) {
+                    if ((await entry.async('uint8array')).length > 0) { hasNotesData = true; break; }
+                }
+            }
+
+            const readIndex = async (name) => {
+                const f = zip.file(name);
+                return f ? await f.async('uint8array') : null;
+            };
+            const notesIndexData = await readIndex('index.notes.pb');
+            const eventsData = await readIndex('index.events.pb');
+            const attachmentIndex = await readIndex('index.attachments.pb');
+            const orderedUuids = getOrderedUuids(notesIndexData, eventsData);
+
+            // The notebook is an imported PDF and there is nothing to draw on it
+            const pdfIsEnough = !!foundPdf && (!wantHandwriting || (!hasNotesData && imageFiles.length === 0));
+            const originalPdfBlob = (pdfIsEnough && wantPdf)
+                ? new Blob([foundPdf.data], { type: 'application/pdf' })
+                : null;
+            if (originalPdfBlob && !needsPages) {
+                return {
+                    blob: originalPdfBlob,
+                    hasHandwriting: false,
+                    handwritingStatus: 'none',
+                    pageCount: 0,
+                    pages: []
+                };
+            }
+
+            // Imported PDF: draw its pages so ink can go on top, or so Word can show them
+            let pdfDoc = null;
+            let specs = null;
+            if (foundPdf && (pdfIsEnough || (hasNotesData && imageFiles.length === 0)) && window.GoodNotesPdfPages) {
+                try {
+                    pdfDoc = await window.GoodNotesPdfPages.openPdf(foundPdf.data);
+                } catch (e) {
+                    console.warn('[Converter] Could not read the PDF pages:', e);
+                }
+                if (pdfDoc) {
+                    const noteByUuid = {};
+                    for (const [path, entry] of Object.entries(noteEntries)) {
+                        noteByUuid[path.split('/').pop().toUpperCase()] = entry;
+                    }
+                    if (pdfIsEnough) {
+                        specs = Array.from({ length: pdfDoc.numPages }, (_, i) => ({ uuid: 'PDF_' + i, pdfIndex: i, note: null }));
+                    } else if (orderedUuids.length === pdfDoc.numPages) {
+                        specs = orderedUuids.map((uuid, i) => ({ uuid, pdfIndex: i, note: noteByUuid[uuid] || null }));
+                    } else {
+                        pdfDoc.destroy();
+                        pdfDoc = null; // page order does not match, fall back below
+                    }
+                }
+            }
+
+            if (!specs) {
+                specs = buildImagePageSpecs(imageFiles, noteEntries, orderedUuids, attachmentIndex, thumbnailBytes);
+            }
+
+            if (specs.length === 0) {
+                if (foundPdf && wantPdf) {
+                    return {
+                        blob: new Blob([foundPdf.data], { type: 'application/pdf' }),
+                        hasHandwriting: false,
+                        handwritingStatus: 'none',
+                        pageCount: 0,
+                        pages: []
+                    };
+                }
+                if (foundPdf) {
+                    throw new Error('The pages of this notebook could not be read. Check your internet connection and try again.');
+                }
+                throw new Error('Nothing to convert: no pages, PDF or handwriting found in this notebook.');
+            }
+
+            try {
+                // When the original PDF is handed back, pages are drawn only for the extras
+                const buildPdf = wantPdf && !originalPdfBlob;
+                const result = await renderPages(specs, {
+                    wantPdf: buildPdf,
+                    wantHandwriting,
+                    pdfDoc,
+                    keepCanvas: !buildPdf || extras.images,
+                    wantSvg: extras.svg
+                });
+                if (originalPdfBlob) result.blob = originalPdfBlob;
+                result.handwritingStatus = !wantHandwriting
+                    ? 'off'
+                    : (result.hasHandwriting ? 'found' : (hasNotesData ? 'unreadable' : 'none'));
+                return result;
+            } finally {
+                if (pdfDoc) pdfDoc.destroy();
+            }
+        }
+
+        /** Choose what goes into the Word file for each page. */
+        function buildWordPages(pages, wantHandwriting) {
+            const out = [];
+            for (const p of pages) {
+                const hasInk = wantHandwriting && p.strokes.length > 0;
+                if (hasInk && p.text) {
+                    out.push({ pageNum: p.pageNum, canvas: p.hasBackground ? (p.plainCanvas || p.canvas) : null, text: p.text });
+                } else if (hasInk) {
+                    out.push({
+                        pageNum: p.pageNum,
+                        canvas: p.canvas,
+                        note: 'This handwriting could not be read as text, so it is shown as a picture.'
+                    });
+                } else if (p.hasBackground) {
+                    out.push({ pageNum: p.pageNum, canvas: p.canvas });
+                }
+            }
+            if (out.length === 0) {
+                throw new Error(wantHandwriting ? 'No page content could be found in this notebook.' : ONLY_HANDWRITING_MESSAGE);
+            }
+            return out;
+        }
+
+        // ---------------------------------------------------------------
+        // Files -> notebooks -> results
+        // ---------------------------------------------------------------
+        function failedEntry(name, message) {
+            return {
+                relativePath: name, filename: name, blob: null, size: 0, pageCount: 0,
+                audioList: [], audioZipBlob: null, error: message
+            };
+        }
+
+        /** Turn library errors into something a person can act on. */
+        function friendlyError(err) {
+            const msg = (err && err.message) || '';
+            if (/corrupt|end of data|central directory|not a zip/i.test(msg)) {
+                return 'This file is damaged or is not a GoodNotes notebook.';
+            }
+            return msg || 'Conversion failed.';
+        }
+
+        async function handleFiles(files) {
+            if (!files || files.length === 0) return;
+            if (isBusy) {
+                showStatus('error', 'Please wait until the current conversion has finished.');
+                return;
+            }
+            if (typeof JSZip === 'undefined' || !window.jspdf) {
+                showStatus('error', 'A required library could not load. Check your internet connection and reload the page.');
+                return;
+            }
+
+            isBusy = true;
+            // Fold the Extras away so the results are visible
+            extrasToggle.setAttribute('aria-expanded', 'false');
+            extrasBody.hidden = true;
+            try {
+                await runConversion(files, { ...settings, extras: activeExtras(settings) });
+            } finally {
+                isBusy = false;
+            }
+        }
+
+        async function runConversion(files, opts) {
+            const ext = opts.format === 'docx' ? '.docx' : '.pdf';
+            const formatLabel = opts.format === 'docx' ? 'Word' : 'PDF';
+
+            convertedFiles = [];
+            masterZipBlob = null;
+            resultsBox.classList.remove('is-visible');
+            panelInner.classList.remove('has-results');
+            masterBar.style.display = 'none';
+            docStream.innerHTML = '';
+
+            showStatus('processing', 'Looking at your files...', true, 5);
+
+            const notebooksToProcess = [];
+
+            for (const file of files) {
+                if (!file || file.size === 0) {
+                    convertedFiles.push(failedEntry(file ? file.name : 'Unknown', 'The file is empty.'));
+                    continue;
+                }
+
+                const lowerName = file.name.toLowerCase();
+
+                if (lowerName.endsWith('.goodnotes')) {
+                    notebooksToProcess.push({
+                        filename: file.name,
+                        relativePath: file.name.replace(/\.goodnotes$/i, ext),
+                        getZip: async () => JSZip.loadAsync(await file.arrayBuffer())
+                    });
+                } else if (lowerName.endsWith('.zip')) {
+                    try {
+                        const rootZip = await JSZip.loadAsync(await file.arrayBuffer());
+                        const inspected = window.GoodNotesZipHandler
+                            ? window.GoodNotesZipHandler.inspectArchive(rootZip)
+                            : { isDirectNotebook: true, innerGoodNotesEntries: [], subfolderNotebookMap: new Map() };
+
+                        if (inspected.isDirectNotebook) {
+                            notebooksToProcess.push({
+                                filename: file.name,
+                                relativePath: file.name.replace(/\.(goodnotes\.)?zip$/i, ext),
+                                getZip: async () => rootZip
+                            });
+                        } else if (inspected.innerGoodNotesEntries.length > 0) {
+                            for (const item of inspected.innerGoodNotesEntries) {
+                                notebooksToProcess.push({
+                                    filename: item.path.split('/').pop(),
+                                    relativePath: item.path.replace(/\.goodnotes$/i, ext),
+                                    getZip: async () => JSZip.loadAsync(await item.entry.async('uint8array'))
+                                });
+                            }
+                        } else if (inspected.subfolderNotebookMap.size > 0) {
+                            for (const [folderName, entries] of inspected.subfolderNotebookMap.entries()) {
+                                const prefix = folderName + '/';
+                                notebooksToProcess.push({
+                                    filename: folderName + '.goodnotes',
+                                    relativePath: folderName + ext,
+                                    getZip: async () => {
+                                        const subZip = new JSZip();
+                                        for (const subItem of entries) {
+                                            subZip.file(subItem.path.slice(prefix.length), await subItem.entry.async('uint8array'));
+                                        }
+                                        return subZip;
+                                    }
+                                });
+                            }
+                        } else {
+                            convertedFiles.push(failedEntry(file.name, 'No GoodNotes notebooks were found in this ZIP.'));
+                        }
+                    } catch (err) {
+                        console.error('Failed to read archive:', file.name, err);
+                        convertedFiles.push(failedEntry(file.name, 'This ZIP file is damaged or cannot be opened.'));
+                    }
+                } else {
+                    convertedFiles.push(failedEntry(file.name, 'Unsupported file type. Please use a .goodnotes or .zip file.'));
+                }
+            }
+
+            if (notebooksToProcess.length === 0 && convertedFiles.length === 0) {
+                showStatus('error', 'Please choose a .goodnotes or .zip file.');
+                return;
+            }
+
+            const total = notebooksToProcess.length;
+            let completed = 0;
+
+            for (let i = 0; i < total; i++) {
+                const nb = notebooksToProcess[i];
+                const overallPct = Math.round((i / total) * 100);
+                showStatus('processing', `Converting ${i + 1} of ${total}: <strong>${escapeHtml(nb.filename)}</strong>`, true, overallPct);
+
+                try {
+                    const zip = await nb.getZip();
+                    const converted = await convertNotebook(zip, opts);
+
+                    let audioList = [];
+                    let audioZipBlob = null;
+                    if (opts.extras.audio && window.GoodNotesAudio) {
+                        try {
+                            audioList = await window.GoodNotesAudio.extractAudioRecordings(zip);
+                            if (audioList.length > 1) {
+                                audioZipBlob = (await window.GoodNotesAudio.packageAudioAsZip(audioList, nb.filename)).blob;
+                            }
+                        } catch (audioErr) {
+                            console.warn('[Converter] Audio notice:', audioErr);
+                        }
+                    }
+
+                    let outputBlob = converted.blob;
+                    let textPages = 0;
+                    let inkPages = 0;
+
+                    // Handwriting is read as text for Word files and for the optional text file
+                    const needsText = opts.handwriting && (opts.format === 'docx' || opts.extras.txt);
+                    if (needsText && window.GoodNotesOCR) {
+                        const stats = await window.GoodNotesOCR.recognizeHandwriting(converted.pages, (done, count, msg) => {
+                            const pct = count ? overallPct + Math.round((done / count) * (100 / total) * 0.8) : overallPct;
+                            showStatus('processing', `${escapeHtml(msg)} <strong>${escapeHtml(nb.filename)}</strong>`, true, pct);
+                        });
+                        textPages = stats.pagesWithText;
+                        inkPages = stats.pagesWithInk;
+                    }
+
+                    // Optional extras (each one is isolated: a failure never blocks the main file)
+                    let imagesZipBlob = null;
+                    let svgZipBlob = null;
+                    let transcriptText = null;
+                    const baseTitle = nb.filename.replace(/\.(goodnotes|zip)$/i, '');
+
+                    if (opts.extras.images && window.GoodNotesImageExporter && converted.pages.length > 0) {
+                        try {
+                            imagesZipBlob = (await window.GoodNotesImageExporter.exportPagesAsZip(converted.pages, baseTitle)).blob;
+                        } catch (e) { console.warn('[Converter] JPG extra notice:', e); }
+                    }
+                    if (opts.extras.svg && window.GoodNotesSvgExporter && converted.pages.length > 0) {
+                        try {
+                            const svgPages = converted.pages.map(p => ({
+                                strokes: p.strokes, width: p.width, height: p.height, backgroundDataUrl: p.svgBackground
+                            }));
+                            svgZipBlob = (await window.GoodNotesSvgExporter.exportPagesAsSvgZip(svgPages, baseTitle)).blob;
+                        } catch (e) { console.warn('[Converter] SVG extra notice:', e); }
+                    }
+                    if (opts.extras.txt && opts.handwriting && window.GoodNotesOCR && inkPages > 0) {
+                        transcriptText = window.GoodNotesOCR.formatTranscript(converted.pages, baseTitle);
+                    }
+
+                    if (opts.format === 'docx') {
+                        showStatus('processing', `Building the Word file: <strong>${escapeHtml(nb.filename)}</strong>`, true, overallPct + Math.round(100 / total * 0.9));
+                        const wordPages = buildWordPages(converted.pages, opts.handwriting);
+                        outputBlob = await window.GoodNotesDocxExporter.exportPagesToDocx(
+                            wordPages,
+                            nb.filename.replace(/\.(goodnotes|zip)$/i, '')
+                        );
+                    }
+
+                    convertedFiles.push({
+                        relativePath: nb.relativePath,
+                        filename: nb.relativePath.split('/').pop(),
+                        blob: outputBlob,
+                        size: outputBlob ? outputBlob.size : 0,
+                        pageCount: converted.pageCount,
+                        format: opts.format,
+                        handwritingRequested: opts.handwriting,
+                        handwritingStatus: converted.handwritingStatus,
+                        inkPages,
+                        textPages,
+                        audioList,
+                        audioZipBlob,
+                        imagesZipBlob,
+                        svgZipBlob,
+                        transcriptText,
+                        error: null
+                    });
+                    completed++;
+                } catch (err) {
+                    console.error('Failed to convert notebook:', nb.relativePath, err);
+                    convertedFiles.push(failedEntry(nb.filename, friendlyError(err)));
+                }
+
+                setProgress(Math.round(((i + 1) / total) * 100));
+            }
+
+            if (window.GoodNotesOCR) window.GoodNotesOCR.terminate();
+
+            // One ZIP for backups and multiple notebooks
+            const successful = convertedFiles.filter(f => !f.error && f.blob);
+            const isSingleZipInput = files.length === 1 && files[0].name.toLowerCase().endsWith('.zip');
+
+            if (successful.length > 1 || (isSingleZipInput && successful.length > 0)) {
+                showStatus('processing', 'Packing everything into one ZIP...', true, 96);
+                masterZipBlob = await window.GoodNotesZipHandler.buildMasterZip(successful);
+                masterZipName = isSingleZipInput
+                    ? files[0].name.replace(/\.(goodnotes\.)?zip$/i, '') + '_converted.zip'
+                    : 'goodnotes_converted.zip';
+                masterTitle.textContent = masterZipName;
+                masterDesc.textContent = `${successful.length} ${formatLabel} file(s), ${formatSize(masterZipBlob.size)}. Your folders are kept.`;
+                masterBar.style.display = 'flex';
+            }
+
+            renderResultList();
+
+            const failedCount = convertedFiles.length - completed;
+            if (completed === 0) {
+                showStatus('error', 'Nothing could be converted. See the details below.');
+            } else if (failedCount > 0) {
+                showStatus('success', `Done: ${completed} converted, ${failedCount} could not be converted.`);
+            } else {
+                showStatus('success', `Done: ${completed} notebook${completed === 1 ? '' : 's'} converted to ${formatLabel}.`);
+            }
+            panelInner.classList.add('has-results');
+            resultsBox.classList.add('is-visible');
+        }
+
+        // ---------------------------------------------------------------
+        // Results
+        // ---------------------------------------------------------------
+        function handwritingBadges(file) {
+            if (!file.handwritingRequested) return '';
+            if (file.format === 'docx') {
+                if (file.inkPages === 0) {
+                    return file.handwritingStatus === 'unreadable'
+                        ? '<span class="badge-warn">Handwriting could not be read</span>'
+                        : '';
+                }
+                let html = `<span class="badge-hw">&#9997; Handwriting as text on ${file.textPages} of ${file.inkPages} pages</span>`;
+                if (file.textPages < file.inkPages) {
+                    html += ` <span class="badge-warn">${file.inkPages - file.textPages} shown as picture</span>`;
+                }
+                return html;
+            }
+            if (file.handwritingStatus === 'found') return '<span class="badge-hw">&#9997; Handwriting included</span>';
+            if (file.handwritingStatus === 'unreadable') return '<span class="badge-warn">Handwriting could not be read</span>';
+            return '';
+        }
+
+        function renderResultList() {
+            docStream.innerHTML = '';
+
+            convertedFiles.forEach((file) => {
+                const row = document.createElement('div');
+                row.className = 'doc-row';
+
+                const ok = !file.error && !!file.blob;
+                const kind = file.format === 'docx' ? 'Word' : 'PDF';
+
+                let badgeHtml = '';
+                if (!ok) {
+                    badgeHtml = `<span class="badge-err">${escapeHtml(file.error)}</span>`;
+                } else {
+                    badgeHtml += file.format === 'docx' ? '<span class="badge-docx">Word</span> ' : '<span class="badge-pdf">PDF</span> ';
+                    badgeHtml += handwritingBadges(file) + ' ';
+                    if (file.audioList.length > 0) {
+                        badgeHtml += `<span class="badge-audio">&#127908; ${file.audioList.length} recording${file.audioList.length === 1 ? '' : 's'}</span>`;
+                    }
+                }
+
+                let audioButtonHtml = '';
+                if (ok && file.audioList.length > 0) {
+                    audioButtonHtml = '<button class="btn btn-pill btn-audio" type="button">&#127908; Recordings</button>';
+                }
+                // Optional extras, one small button each
+                let extraButtonsHtml = '';
+                if (ok && file.imagesZipBlob) extraButtonsHtml += '<button class="btn btn-pill btn-x-images" type="button">JPG ZIP</button>';
+                if (ok && file.svgZipBlob) extraButtonsHtml += '<button class="btn btn-pill btn-x-svg" type="button">SVG ZIP</button>';
+                if (ok && file.transcriptText) extraButtonsHtml += '<button class="btn btn-pill btn-x-txt" type="button">TXT</button>';
+
+                row.innerHTML = `
+                    <div class="doc-left">
+                        <div class="doc-mark">${ok ? (file.format === 'docx' ? 'DOC' : 'PDF') : '!'}</div>
+                        <div style="min-width: 0;">
+                            <div class="doc-path" title="${escapeHtml(file.relativePath)}">${escapeHtml(file.relativePath)}</div>
+                            <div class="doc-meta">
+                                ${ok ? `<span>${formatSize(file.size)}</span>${file.pageCount > 0 ? ` &bull; <span>${file.pageCount} pg</span>` : ''} &bull; ` : ''}
+                                ${badgeHtml}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="doc-actions">
+                        ${audioButtonHtml}
+                        ${extraButtonsHtml}
+                        ${ok ? `<button class="btn btn-ghost btn-main" type="button">Download ${kind}</button>` : ''}
+                    </div>
+                `;
+
+                if (ok) {
+                    row.querySelector('.btn-main').addEventListener('click', () => {
+                        triggerDownload(file.blob, file.filename);
+                    });
+                    const baseName = file.filename.replace(/\.(pdf|docx)$/i, '');
+                    const bindExtra = (selector, blobFactory, name) => {
+                        const btn = row.querySelector(selector);
+                        if (btn) btn.addEventListener('click', () => triggerDownload(blobFactory(), name));
+                    };
+                    bindExtra('.btn-x-images', () => file.imagesZipBlob, `${baseName}_pages.zip`);
+                    bindExtra('.btn-x-svg', () => file.svgZipBlob, `${baseName}_vector.zip`);
+                    bindExtra('.btn-x-txt', () => new Blob([file.transcriptText], { type: 'text/plain;charset=utf-8' }), `${baseName}.txt`);
+                    const audioBtn = row.querySelector('.btn-audio');
+                    if (audioBtn) {
+                        audioBtn.addEventListener('click', () => {
+                            const base = file.filename.replace(/\.(pdf|docx)$/i, '');
+                            if (file.audioZipBlob) {
+                                triggerDownload(file.audioZipBlob, `${base}_recordings.zip`);
+                            } else {
+                                triggerDownload(file.audioList[0].blob, `${base}_${file.audioList[0].filename}`);
+                            }
+                        });
+                    }
+                }
+
+                docStream.appendChild(row);
+            });
+        }
+    </script>
+</body>
+</html>
